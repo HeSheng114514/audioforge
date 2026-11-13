@@ -25,3 +25,6 @@ Thumbs.db
 
 # 演示音频（用户选择不入库；可用 tools/make_demos.py 重新生成）
 samples/
+
+# 本地更新日志（不上传 GitHub，用户要求）
+GitHub更新日志.md
