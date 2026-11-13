@@ -1,0 +1,8 @@
+# 音匠 AudioForge 依赖（Python 3.10+）
+# 本机已预装 PyAV / numpy / flask / mutagen；若缺失可执行：
+#   pip install -r requirements.txt
+
+av>=12.0.0        # 音频解码/编码（内含 ffmpeg 动态库，无需另装 ffmpeg.exe）
+numpy>=1.24       # 全部 DSP 运算
+flask>=2.3        # 本地 Web 服务
+mutagen>=1.46     # 标签读写（ID3 / Vorbis / MP4 / FLAC）

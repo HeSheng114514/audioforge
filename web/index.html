@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音匠 AudioForge · 音乐转格式 & 8bit 芯片化</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M4 18h3v-4H4zm5 4h3V10H9zm5-9h3v10h-3zm5-5h3v20h-3zm5 7h3v6h-3zm5 4h3v-2h-3z" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>音匠 <span>AudioForge</span></h1>
+        <p>音乐转格式 · 8bit 芯片化 · 批量处理</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="pill" id="enginePill">引擎加载中…</span>
+      <button class="ghost" id="btnOpenOut">打开输出目录</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左：文件队列 -->
+    <section class="panel files-panel">
+      <div class="panel-head">
+        <h2>文件队列 <span class="count" id="fileCount">0</span></h2>
+        <button class="ghost small" id="btnClear">清空</button>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon">⇪</div>
+        <p><strong>拖入音频文件</strong></p>
+        <p class="hint">或 <button class="link" id="btnPick">选择文件</button> · <button class="link" id="btnSamples">载入示例</button></p>
+        <p class="hint fmt-hint">MP3 WAV FLAC OGG OPUS M4A WMA AIFF</p>
+        <p class="hint enc-hint">加密格式：NCM · QMC · MFLAC · KGM · VPR · KWM</p>
+      </div>
+      <input type="file" id="fileInput" multiple accept="audio/*,.mp3,.wav,.flac,.ogg,.opus,.m4a,.aac,.wma,.aiff,.aif,.mp2,.ac3,.caf,.wv,.ape,.amr" hidden>
+      <ul class="filelist" id="filelist"></ul>
+      <div class="queue-foot">
+        <div class="mini-stat"><span id="statTotal">0</span><small>个文件</small></div>
+        <div class="mini-stat"><span id="statDur">0:00</span><small>总时长</small></div>
+        <div class="mini-stat"><span id="statSize">0 MB</span><small>总大小</small></div>
+      </div>
+    </section>
+
+    <!-- 中：波形 + 试听 -->
+    <section class="panel stage">
+      <div class="panel-head">
+        <h2 id="stageTitle">未选择文件</h2>
+        <div class="stage-actions">
+          <button class="chip-btn" id="btnPlay" disabled>▶ 试听</button>
+          <button class="chip-btn" id="btnCompare" disabled title="A/B 对比：原声 ↔ 处理后">A/B</button>
+        </div>
+      </div>
+
+      <div class="viz" id="viz">
+        <canvas id="wave" height="150"></canvas>
+        <div class="viz-empty" id="vizEmpty">选择一个文件查看波形</div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+      <img id="spectrum" class="spectrum" alt="频谱图" hidden>
+      <div class="meta-row" id="metaRow"></div>
+
+      <div class="compare" id="compare" hidden>
+        <div class="compare-head">
+          <span class="badge src">原声</span>
+          <audio id="audioSrc" controls preload="none"></audio>
+        </div>
+        <div class="compare-head">
+          <span class="badge out">处理后</span>
+          <audio id="audioOut" controls preload="none"></audio>
+        </div>
+        <div class="compare-tools">
+          <p class="hint" id="compareHint"></p>
+          <button class="chip-btn" id="btnCompareImg" disabled>导出对比图</button>
+        </div>
+        <img id="compareImg" class="compare-img" alt="波形对比" hidden>
+      </div>
+
+      <div class="chain" id="chainBox">
+        <span class="chain-title">处理链</span>
+        <div class="chain-items" id="chainItems"><em class="muted">选择文件并设置参数后显示</em></div>
+      </div>
+    </section>
+
+    <!-- 右：参数 -->
+    <section class="panel params">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="fmt">格式</button>
+        <button class="tab" data-tab="chip">8bit</button>
+        <button class="tab" data-tab="tune">调音</button>
+        <button class="tab" data-tab="unlock">解锁</button>
+        <button class="tab" data-tab="out">导出</button>
+      </div>
+
+      <div class="tab-body" data-panel="fmt">
+        <div class="field">
+          <label>输出格式</label>
+          <div class="fmt-grid" id="fmtGrid"></div>
+        </div>
+        <div class="field">
+          <label>品质</label>
+          <div class="seg" id="qualitySeg"></div>
+        </div>
+        <div class="field" id="bitrateField">
+          <label>码率 <b id="bitrateVal">320</b> kbps</label>
+          <input type="range" id="bitrate" min="64" max="512" step="32" value="320">
+        </div>
+        <div class="field">
+          <label>采样率</label>
+          <select id="rate"><option value="0">保持原样</option></select>
+        </div>
+        <div class="field" id="bitsField">
+          <label>位深</label>
+          <select id="bits"><option value="16">16 bit</option><option value="24">24 bit</option><option value="32">32 bit float</option></select>
+        </div>
+      </div>
+
+      <div class="tab-body" data-panel="chip" hidden>
+        <label class="switch">
+          <input type="checkbox" id="chipEnabled">
+          <span class="track"><span class="knob"></span></span>
+          <span class="switch-label">启用 8bit 芯片化</span>
+        </label>
+        <div class="preset-grid" id="presetGrid"></div>
+        <p class="chip-desc" id="presetDesc"></p>
+
+        <div class="field">
+          <label>位深 <b id="bitDepthVal">4</b> bit <span class="tip">台阶数 <b id="levelsVal">15</b></span></label>
+          <input type="range" id="bitDepth" min="1" max="16" step="1" value="4">
+        </div>
+        <div class="field">
+          <label>等效采样率 <b id="chipRateVal">11025</b> Hz <span class="tip">上限 <b id="chipNyq">5512</b> Hz</span></label>
+          <input type="range" id="chipRate" min="1000" max="44100" step="1" value="11025">
+        </div>
+        <div class="field">
+          <label>波形方化 <b id="squareVal">0.55</b></label>
+          <input type="range" id="squareness" min="0" max="1" step="0.01" value="0.55">
+        </div>
+        <div class="field">
+          <label>音量步进 <b id="gateVal">0.35</b></label>
+          <input type="range" id="gate" min="0" max="1" step="0.01" value="0.35">
+        </div>
+        <div class="field">
+          <label>颤音深度 <b id="vibVal">0.22</b> 半音</label>
+          <input type="range" id="vibrato" min="0" max="1.5" step="0.01" value="0.22">
+        </div>
+        <div class="field">
+          <label>琶音跳跃 <b id="arpVal">0</b> 半音</label>
+          <input type="range" id="arp" min="0" max="12" step="1" value="0">
+        </div>
+        <div class="field">
+          <label>噪声床 <b id="noiseVal">0</b></label>
+          <input type="range" id="noise" min="0" max="0.3" step="0.005" value="0">
+        </div>
+        <div class="field">
+          <label>抗混叠低通 <b id="lpVal">自动</b></label>
+          <input type="range" id="lowpass" min="0" max="16000" step="100" value="0">
+        </div>
+        <div class="field">
+          <label>声道</label>
+          <div class="seg small" id="chipStereo"></div>
+        </div>
+        <div class="field">
+          <label>结尾减速 <b id="stopVal">0</b> s</label>
+          <input type="range" id="tapeStop" min="0" max="3" step="0.1" value="0">
+        </div>
+      </div>
+
+      <div class="tab-body" data-panel="tune" hidden>
+        <div class="field">
+          <label>音量 <b id="volVal">0</b> dB</label>
+          <input type="range" id="volume" min="-24" max="12" step="0.5" value="0">
+        </div>
+        <div class="field">
+          <label>响度归一化</label>
+          <div class="seg small" id="normSeg"></div>
+        </div>
+        <div class="field">
+          <label>变速 <b id="speedVal">1.00</b>×</label>
+          <input type="range" id="speed" min="0.5" max="2" step="0.01" value="1">
+        </div>
+        <div class="field">
+          <label>移调 <b id="pitchVal">0</b> 半音</label>
+          <input type="range" id="pitch" min="-12" max="12" step="1" value="0">
+        </div>
+        <div class="field">
+          <label>淡入 <b id="fiVal">0</b> s</label>
+          <input type="range" id="fadeIn" min="0" max="5" step="0.1" value="0">
+        </div>
+        <div class="field">
+          <label>淡出 <b id="foVal">0</b> s</label>
+          <input type="range" id="fadeOut" min="0" max="5" step="0.1" value="0">
+        </div>
+        <div class="field">
+          <label>裁剪起止（秒）</label>
+          <div class="two">
+            <input type="number" id="start" min="0" step="0.1" placeholder="开始 0.0">
+            <input type="number" id="end" min="0" step="0.1" placeholder="结束 到末尾">
+          </div>
+        </div>
+        <div class="field">
+          <label>声道</label>
+          <div class="seg small" id="chanSeg"></div>
+        </div>
+        <div class="field row-switches">
+          <label class="mini-check"><input type="checkbox" id="trimSilence"> 去除首尾静音</label>
+          <label class="mini-check"><input type="checkbox" id="reverse"> 倒放</label>
+        </div>
+        <div class="field">
+          <label>均衡（dB）</label>
+          <div class="eq" id="eqBox"></div>
+        </div>
+      </div>
+
+      <div class="tab-body" data-panel="unlock" hidden>
+        <div class="unlock-head">
+          <div class="unlock-badge" id="unlockBadge">未检测</div>
+          <p class="unlock-desc" id="unlockDesc">选中加密文件后，这里会显示平台与格式并允许一键解密。</p>
+        </div>
+
+        <div class="field">
+          <label>支持的加密格式</label>
+          <div class="enc-grid" id="encGrid"></div>
+        </div>
+
+        <div class="field" id="ekeyField" hidden>
+          <label>QMC v2 ekey <span class="tip">可选</span></label>
+          <input type="text" id="ekeyInput" placeholder="粘贴 ekey，或留空尝试从文件读取">
+        </div>
+
+        <label class="mini-check"><input type="checkbox" id="autoUnlock" checked> 转换时自动解锁加密文件</label>
+
+        <button class="primary" id="btnUnlock" disabled>解密并还原原始音频</button>
+        <p class="hint">解密是**流式原样还原**，不重编码，音质零损失。解出的文件会出现在「转换结果」里。</p>
+      </div>
+
+      <div class="tab-body" data-panel="out" hidden>
+        <div class="field">
+          <label>输出目录</label>
+          <input type="text" id="outDir" placeholder="默认 workspace/outputs">
+        </div>
+        <div class="field">
+          <label>文件名后缀</label>
+          <input type="text" id="suffix" value="_8bit" placeholder="如 _8bit">
+        </div>
+        <div class="field">
+          <label>标签</label>
+          <input type="text" id="metaTitle" placeholder="标题（留空继承原文件）">
+          <input type="text" id="metaArtist" placeholder="艺术家">
+          <input type="text" id="metaAlbum" placeholder="专辑">
+        </div>
+        <label class="mini-check"><input type="checkbox" id="keepTags" checked> 保留原文件标签</label>
+      </div>
+
+      <div class="run">
+        <button class="primary" id="btnConvert">开始转换</button>
+        <button class="ghost" id="btnPreview" disabled>试听处理后</button>
+      </div>
+      <div class="progress" id="globalProgress" hidden>
+        <div class="bar"><i id="barFill"></i></div>
+        <span id="progressText">准备中…</span>
+      </div>
+    </section>
+  </main>
+
+  <section class="results panel" id="resultsPanel" hidden>
+    <div class="panel-head">
+      <h2>转换结果</h2>
+      <button class="ghost small" id="btnOpenOut2">打开目录</button>
+    </div>
+    <ul class="results-list" id="resultsList"></ul>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 构建产物
+build/
+dist/
+release/
+*.spec.bak
+
+# 运行时数据（含用户上传的音频，绝不入库）
+workspace/
+out/
+
+# 系统
+.DS_Store
+Thumbs.db
+*.part
+
+# 本地测试残留
+*.log
+
+# 演示音频（用户选择不入库；可用 tools/make_demos.py 重新生成）
+samples/
